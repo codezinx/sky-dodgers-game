@@ -142,6 +142,9 @@ class ScoreKeeper(pygame.sprite.Sprite):
         if self.__alive:
             self.__score += 1
     
+    def get_score(self):
+        return self.__score
+    
     def player_died(self):
         self.__alive = False
     
@@ -243,16 +246,28 @@ class EnemyFrame(pygame.sprite.Sprite):
     def clear_sprites(self):
         self.__sprites.empty()
     
-    def init_sprites(self):
-        # Add 3 mines
-        for _ in range(3):
+    def init_sprites(self, level):
+        if level == 1:
+            # Add just 1 mine and 1 heart
             self.add_sprite(Mine(self))
-        # Add 2 Hearts
-        for _ in range(2):
             self.add_sprite(Heart(self))
-        # Add 1 enemy plane and 1 fast enemy plane
-        self.add_sprite(EnemyPlane(self))
-        self.add_sprite(FastEnemyPlane(self))
+        elif level == 2:
+            # Add 2 mines and hearts
+            for _ in range(2):
+                self.add_sprite(Mine(self))
+                self.add_sprite(Heart(self))
+            # Add an enemy plane
+            self.add_sprite(EnemyPlane(self))
+        elif level == 3:
+            # Add 3 mines
+            for _ in range(3):
+                self.add_sprite(Mine(self))
+            # Add 2 Hearts
+            for _ in range(2):
+                self.add_sprite(Heart(self))
+            # Add 1 enemy plane and 1 fast enemy plane
+            self.add_sprite(EnemyPlane(self))
+            self.add_sprite(FastEnemyPlane(self))
     
     def get_sprites(self):
         return self.__sprites
@@ -339,6 +354,10 @@ class Mine(pygame.sprite.Sprite):
             if now - self.__inactive_time >= self.__despawn_delay:
                 # despawn mine
                 self.kill()
+    
+    def freeze(self):
+        # Dummy function, since freeze will be called recursively for all sprites
+        return
 
 
 class EnemyPlane(Mine):
@@ -368,6 +387,9 @@ class EnemyPlane(Mine):
             if now - self._Mine__inactive_time >= self._Mine__despawn_delay:
                 # despawn mine
                 self.kill()
+    
+    def freeze(self):
+        self.__speed = 0
 
 class FastEnemyPlane(EnemyPlane):
     def __init__(self, enemy_frame: EnemyFrame):

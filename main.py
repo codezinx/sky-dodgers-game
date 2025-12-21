@@ -10,7 +10,7 @@ def main():
     # because player speed is needed to create enemy sprites
 
     # The speed of the player relative to the Earth (needs to be a global variable)
-    player_speed = 10 
+    player_speed = 10
 
     # D - Display configuration
     screen = pygame.display.set_mode((800, 600))
@@ -52,10 +52,10 @@ def main():
     hearts = pygame.sprite.Group()
 
     enemy_frame = sprites.EnemyFrame(screen, player_speed)
-    enemy_frame.init_sprites()
+    enemy_frame.init_sprites(1) # Init. w/ level 1
 
     enemy_frame_next = sprites.EnemyFrame(screen, player_speed, True)
-    enemy_frame_next.init_sprites()
+    enemy_frame_next.init_sprites(1) # Init. w/ level 1
 
     ##### Add sprites to lists or groups
 
@@ -73,7 +73,8 @@ def main():
 
     #### Game over screen
 
-
+    game_over_bg = pygame.Surface(screen.get_size())
+    game_over_bg.fill("#550000") # maroon color
 
     # A - Action (broken into ALTER steps)
 
@@ -82,6 +83,8 @@ def main():
     keepGoing = True
     # Score counter
     score_clock = 0
+    # Level tracker
+    level = 1
     # Game over?
     game_over = False
 
@@ -96,15 +99,7 @@ def main():
             elif event.type == pygame.JOYAXISMOTION:
                 if event.axis == 1:
                     player.move(event.value)
-        
-        ### If game is over, stop the game
-
-        if game_over:
-            player.blow_up()
-            player_speed = 0
-            enemy_frame.set_speed(player_speed)
-            enemy_frame_next.set_speed(player_speed)
-        
+         
         ### Keyboard input (only functional if no joysticks are plugged in)
 
         if len(joysticks) <= 0:
@@ -124,10 +119,9 @@ def main():
             score.score()
             score_clock = 0
 
-        # As long as game is not over, increment score clock
+        # Increment score clock
         
-        if not game_over:
-            score_clock += 1
+        score_clock += 1
 
         ### Collision logic with sprites
 
@@ -148,6 +142,17 @@ def main():
             for heart in collided_hearts:
                 if heart.is_active():
                     health.heal()
+        
+        ### Update level and speed after every 10 points, assuming game isn't over
+
+        if score.get_score() == 10 and not game_over:
+            level = 2
+        elif score.get_score() == 20 and not game_over:
+            level = 3
+        elif score.get_score() == 30 and not game_over:
+            player_speed = 15
+            enemy_frame.set_speed(player_speed)
+            enemy_frame_next.set_speed(player_speed)
 
         ### Change location of moving backgrounds
         bg_x1 -= player_speed
@@ -170,7 +175,7 @@ def main():
             hearts.remove(enemy_frame.get_hearts())
             enemy_frame.clear_sprites()
             # Reinitialize sprites
-            enemy_frame.init_sprites()
+            enemy_frame.init_sprites(level)
             enemy_sprites.add(enemy_frame.get_enemy_sprites())
             hearts.add(enemy_frame.get_hearts())
         
@@ -182,14 +187,27 @@ def main():
             hearts.remove(enemy_frame_next.get_hearts())
             enemy_frame_next.clear_sprites()
             # Reinitialize sprites
-            enemy_frame_next.init_sprites()
+            enemy_frame_next.init_sprites(level)
             enemy_sprites.add(enemy_frame_next.get_enemy_sprites())
             hearts.add(enemy_frame_next.get_hearts())
-        
-        # Is the game over?
+         
+        ### Is the game over?
 
         if health.get_health() <= 0:
             game_over = True
+        
+        ### If game is over, stop the game
+
+        if game_over:
+            player.blow_up()
+            player_speed = 0
+            enemy_frame.set_speed(player_speed)
+            enemy_frame_next.set_speed(player_speed)
+            score.player_died()
+
+            ### Recursively freeze all enemy sprites (no need for hearts)
+            for sprite in enemy_sprites:
+                sprite.freeze()
 
         # R - Refresh display
         screen.blit(background, (bg_x1, 0))

@@ -71,6 +71,10 @@ def main():
     pygame.mixer.music.set_volume(0.5)
     pygame.mixer.music.play(-1)
 
+    #### Game over screen
+
+
+
     # A - Action (broken into ALTER steps)
 
     # A - Assign values to key variables
@@ -78,6 +82,8 @@ def main():
     keepGoing = True
     # Score counter
     score_clock = 0
+    # Game over?
+    game_over = False
 
     # L - Loop
     while keepGoing:
@@ -90,6 +96,14 @@ def main():
             elif event.type == pygame.JOYAXISMOTION:
                 if event.axis == 1:
                     player.move(event.value)
+        
+        ### If game is over, stop the game
+
+        if game_over:
+            player.blow_up()
+            player_speed = 0
+            enemy_frame.set_speed(player_speed)
+            enemy_frame_next.set_speed(player_speed)
         
         ### Keyboard input (only functional if no joysticks are plugged in)
 
@@ -109,8 +123,31 @@ def main():
         if score_clock >= 30:
             score.score()
             score_clock = 0
+
+        # As long as game is not over, increment score clock
         
-        score_clock += 1
+        if not game_over:
+            score_clock += 1
+
+        ### Collision logic with sprites
+
+        #### With mine or enemy planes
+        collided_enemies = pygame.sprite.spritecollide(player, enemy_sprites, False, pygame.sprite.collide_mask)
+
+        if collided_enemies and not game_over:
+            for enemy in collided_enemies:
+                if enemy.is_active():
+                    health.take_damage()
+                
+                enemy.blow_up() 
+        
+        #### With hearts
+        collided_hearts = pygame.sprite.spritecollide(player, hearts, True, pygame.sprite.collide_mask)
+
+        if collided_hearts and not game_over:
+            for heart in collided_hearts:
+                if heart.is_active():
+                    health.heal()
 
         ### Change location of moving backgrounds
         bg_x1 -= player_speed
@@ -148,6 +185,11 @@ def main():
             enemy_frame_next.init_sprites()
             enemy_sprites.add(enemy_frame_next.get_enemy_sprites())
             hearts.add(enemy_frame_next.get_hearts())
+        
+        # Is the game over?
+
+        if health.get_health() <= 0:
+            game_over = True
 
         # R - Refresh display
         screen.blit(background, (bg_x1, 0))

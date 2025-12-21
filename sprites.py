@@ -16,6 +16,7 @@ def load_assets():
     ASSETS["Heart"] = pygame.image.load("heart.png")
     ASSETS["Health"] = pygame.image.load("health.png")
     ASSETS["explosion_sfx"] = pygame.mixer.Sound("explosion.mp3")
+    ASSETS["explosion_sfx"].set_volume(0.5)
     ASSETS["heal_sfx"] = pygame.mixer.Sound("heal.wav")
     ASSETS["font_score"] = pygame.font.Font("press_start.ttf", 40)
     ASSETS["font_health"] = pygame.font.Font("press_start.ttf", 30)
@@ -32,6 +33,8 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.left = 20
         self.rect.centery = self.__screen.get_height() // 2
+        # Setup mask for accurate collision detection
+        self.mask = pygame.mask.from_surface(self.image)
         # Other key attributes
         self.__dodge_speed = 10
         self.__current_vy = 0
@@ -39,6 +42,8 @@ class Player(pygame.sprite.Sprite):
         self.__explosion_sfx = ASSETS["explosion_sfx"]
         self.__freeze = False
         self.__blown_up = False
+        self.__blow_up_time = 0
+        self.__despawn_delay = 1000 # ms
     
     def move(self, ratio):
         if ratio < -1:
@@ -63,13 +68,22 @@ class Player(pygame.sprite.Sprite):
             self.image = self.__explosion_img
             self.rect = self.image.get_rect()
             self.rect.center = last_pos
+            self.mask = pygame.mask.from_surface(self.image)
             self.__explosion_sfx.play()
 
             self.__freeze = True
             self.__blown_up = True
+            self.__blow_up_time = pygame.time.get_ticks()
         # self.kill()
 
     def update(self):
+        if self.__blown_up:
+            now = pygame.time.get_ticks()
+
+            if now - self.__blow_up_time >= self.__despawn_delay:
+                # despawn player
+                self.kill()
+        
         if self.__freeze:
             return
 
@@ -153,17 +167,27 @@ class Health(pygame.sprite.Sprite):
         new_width = int(self.__heart.get_width() * scale)
         self.__heart = pygame.transform.smoothscale(self.__heart, (new_width, new_height))
         # Store Position
-        self.__position = (80, self.__screen.get_height() - 40)
+        self.__position = (30, self.__screen.get_height() - 30)
         # Keep track of health
         self.__health = 100
         self.__heal_sfx = pygame.mixer.Sound("heal.wav")
     
     def take_damage(self):
         self.__health -= 40
+
+        if self.__health < 0:
+            self.__health = 0
     
     def heal(self):
         self.__health += 20
+
+        if self.__health > 100:
+            self.__health = 100
+
         self.__heal_sfx.play()
+    
+    def get_health(self):
+        return self.__health
     
     def update(self):
         # Update the score label with the appropriate information 
@@ -182,7 +206,7 @@ class Health(pygame.sprite.Sprite):
         self.image.blit(self.__label, (self.__heart.get_width() + gap, 1))
         # Rect
         self.rect = self.image.get_rect()
-        self.rect.center = self.__position
+        self.rect.bottomleft = self.__position
 
 class EnemyFrame(pygame.sprite.Sprite):
     def __init__(self, screen, speed, next=False):
@@ -220,14 +244,14 @@ class EnemyFrame(pygame.sprite.Sprite):
         self.__sprites.empty()
     
     def init_sprites(self):
-        # Add 4 mines
-        for _ in range(4):
+        # Add 3 mines
+        for _ in range(3):
             self.add_sprite(Mine(self))
-        # Add 2 enemy planes and Hearts
+        # Add 2 Hearts
         for _ in range(2):
-            self.add_sprite(EnemyPlane(self))
             self.add_sprite(Heart(self))
-        # Add 1 fast enemy plane
+        # Add 1 enemy plane and 1 fast enemy plane
+        self.add_sprite(EnemyPlane(self))
         self.add_sprite(FastEnemyPlane(self))
     
     def get_sprites(self):
@@ -267,11 +291,15 @@ class Mine(pygame.sprite.Sprite):
         self.__enemy_frame = enemy_frame
         # Setup rect
         self.rect = self.image.get_rect()
+        # Setup mask for accurate collision detection
+        self.mask = pygame.mask.from_surface(self.image)
         # Randomly place mine
         self.place_sprite()
         # Other key attributes
         self.__explosion_img = ASSETS["explosion_img"]
         self.__explosion_sfx = ASSETS["explosion_sfx"]
+        self.__despawn_delay = 250 # in ms
+        self.__inactive_time = 0
         self.__active = True
     
     def place_sprite(self):
@@ -292,9 +320,11 @@ class Mine(pygame.sprite.Sprite):
             self.image = self.__explosion_img
             self.rect = self.image.get_rect()
             self.rect.center = last_pos
+            self.mask = pygame.mask.from_surface(self.image)
             self.__explosion_sfx.play()
 
             self.__active = False
+            self.__inactive_time = pygame.time.get_ticks()
     
     def is_active(self):
         return self.__active
@@ -302,6 +332,14 @@ class Mine(pygame.sprite.Sprite):
     def update(self):
         # Just move mine in accordane with enemy frame
         self.rect.centerx -= self.__enemy_frame.get_speed()
+        # Despawn mine if made inactive
+        if not self.__active:
+            now = pygame.time.get_ticks()
+
+            if now - self.__inactive_time >= self.__despawn_delay:
+                # despawn mine
+                self.kill()
+
 
 class EnemyPlane(Mine):
     def __init__(self, enemy_frame: EnemyFrame):
@@ -311,6 +349,8 @@ class EnemyPlane(Mine):
         # Setup rect and position
         self.rect = self.image.get_rect()
         self.place_sprite()
+        # Setup mask for accurate collision detection
+        self.mask = pygame.mask.from_surface(self.image)
         # New key attributes
         self.__speed = 5
      
@@ -320,6 +360,14 @@ class EnemyPlane(Mine):
 
         if self._Mine__active:
             self.rect.centerx -= self.__speed
+        
+        # Despawn mine if made inactive
+        if not self._Mine__active:
+            now = pygame.time.get_ticks()
+
+            if now - self._Mine__inactive_time >= self._Mine__despawn_delay:
+                # despawn mine
+                self.kill()
 
 class FastEnemyPlane(EnemyPlane):
     def __init__(self, enemy_frame: EnemyFrame):
@@ -329,6 +377,8 @@ class FastEnemyPlane(EnemyPlane):
         # Change rect
         self.rect = self.image.get_rect()
         self.place_sprite()
+        # Change mask
+        self.mask = pygame.mask.from_surface(self.image)
         # Change speed
         self._EnemyPlane__speed = 8
 
@@ -347,3 +397,7 @@ class Heart(Mine):
     
     def deactivate(self):
         self._Mine__active = False
+
+    def update(self):
+        # Just move heart in accordane with enemy frame
+        self.rect.centerx -= self._Mine__enemy_frame.get_speed()

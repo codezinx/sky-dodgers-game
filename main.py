@@ -1,5 +1,5 @@
 # I - Import and Initialize
-import pygame, sys, sprites
+import pygame, sys, os, sprites
 
 pygame.init()
 pygame.mixer.init()
@@ -62,7 +62,7 @@ def main():
     enemy_sprites.add(enemy_frame.get_enemy_sprites(), enemy_frame_next.get_enemy_sprites())
     hearts.add(enemy_frame.get_hearts(), enemy_frame_next.get_hearts())
 
-    #### Sprite groups
+    #### Main game sprite groups (excl. enemies and hearts)
 
     all_sprites = pygame.sprite.Group(player, score, health, enemy_frame, enemy_frame_next)
 
@@ -76,17 +76,45 @@ def main():
     game_over_bg = pygame.Surface(screen.get_size())
     game_over_bg.fill("#550000") # maroon color
 
+    game_over_txt = sprites.Label("GAME OVER!", (screen.get_width() // 2, 70), 60, "yellow")
+
+    go_score_label = sprites.Label("SCORE", (screen.get_width() // 2, 160), 30)
+    go_score_display = sprites.Label("100", (screen.get_width() // 2, 225), 60)
+
+    go_hi_score_label = sprites.Label("HIGH SCORE", (screen.get_width() // 2, 315), 30)
+    go_hi_score_display = sprites.Label("100", (screen.get_width() // 2, 380), 60)
+
+    game_over_group = pygame.sprite.Group(game_over_txt, go_score_label, go_score_display, go_hi_score_label, go_hi_score_display)
+
     # A - Action (broken into ALTER steps)
 
     # A - Assign values to key variables
     clock = pygame.time.Clock()
     keepGoing = True
-    # Score counter
+    ## Constants
+    score_rate = 1 # sec
+    ## Score counter
     score_clock = 0
-    # Level tracker
+    ## Level tracker
     level = 1
-    # Game over?
+    ## Game over and clock
     game_over = False
+    game_over_delay = 2 # sec
+    game_over_clock = 0
+    hi_score_flash_clock = 0
+
+    # High score logic ---
+    high_score = 0
+
+    if os.path.exists("highscore.txt"):
+        with open("highscore.txt", "r") as score_file:
+            try:
+                high_score = int(score_file.readline())
+            except ValueError:
+                pass
+
+    hi_score_beat = False
+    hi_score_flash_rate = 0.5 # sec
 
     # L - Loop
     while keepGoing:
@@ -115,10 +143,24 @@ def main():
                 player.move(0)
         
         ### Keep track of how much time passed. Update score after every second (30 frames)
-        if score_clock >= 30:
+        ### Also update high score if necessary
+
+        if score_clock >= score_rate * 30:
             score.score()
             score_clock = 0
 
+            if score.get_score() > high_score:
+                high_score = score.get_score()
+
+                #### Update high score file
+
+                with open("highscore.txt", "w") as score_file:
+                    score_file.write(str(high_score))
+                
+                #### High score beaten
+
+                hi_score_beat = True
+        
         # Increment score clock
         
         score_clock += 1
@@ -196,7 +238,7 @@ def main():
         if health.get_health() <= 0:
             game_over = True
         
-        ### If game is over, stop the game
+        #### If game is over, stop the game
 
         if game_over:
             player.blow_up()
@@ -208,8 +250,33 @@ def main():
             ### Recursively freeze all enemy sprites (no need for hearts)
             for sprite in enemy_sprites:
                 sprite.freeze()
+            
+            #### Set the text for the scores in game over screen
+
+            go_score_display.change_text(str(score.get_score()))
+            go_hi_score_display.change_text(str(high_score))
+            
+            #### Increment a game over clock; it should reach a certain time before game over screen is reached
+            game_over_clock += 1
+        
+        #### If high score is beaten, change high score text and make text flash
+
+        if game_over and game_over_clock >= game_over_delay * 30 and hi_score_beat:
+            go_hi_score_label.change_text("NEW HIGH SCORE!")
+            hi_score_flash_clock += 1
+        
+        if hi_score_flash_clock >= hi_score_flash_rate * 30:
+            hi_score_flash_clock = 0
+
+            if go_hi_score_label.get_color() == "yellow":
+                go_hi_score_label.change_color("white")
+                go_hi_score_display.change_color("white")
+            else:
+                go_hi_score_label.change_color("yellow")
+                go_hi_score_display.change_color("yellow")
 
         # R - Refresh display
+
         screen.blit(background, (bg_x1, 0))
         screen.blit(background, (bg_x2, 0))
         screen.blit(canvas, (0, 0))
@@ -225,6 +292,14 @@ def main():
         hearts.draw(screen)
         enemy_sprites.draw(screen)
         all_sprites.draw(screen)
+
+        ### Show game over screen after game is over and certain time has passed
+
+        if game_over and game_over_clock >= game_over_delay * 30:
+            screen.blit(game_over_bg, (0, 0))
+            game_over_group.clear(screen, game_over_bg)
+            game_over_group.update()
+            game_over_group.draw(screen)
 
         pygame.display.flip()
 

@@ -125,6 +125,34 @@ class LabelTools:
 
         return surf
 
+class Label(pygame.sprite.Sprite):
+    def __init__(self, msg, pos, font_size, color="white"):
+        super().__init__()
+        # Store font
+        self.__font = pygame.font.Font("press_start.ttf", font_size)
+        # Store message
+        self.__msg = msg
+        # Store position and color
+        self.__pos = pos
+        self.__color = color
+    
+    def change_text(self, msg):
+        if type(msg) == str:
+            self.__msg = msg
+    
+    def get_color(self):
+        return self.__color
+    
+    def change_color(self, color):
+        self.__color = color
+    
+    def update(self):
+        # Update label w/ appropriate info
+        self.image = LabelTools.show_outlined_text(self.__font, self.__msg, text_color=self.__color)
+        # Update position w/ rect
+        self.rect = self.image.get_rect()
+        self.rect.center = self.__pos
+
 class ScoreKeeper(pygame.sprite.Sprite):
     def __init__(self, screen):
         super().__init__()

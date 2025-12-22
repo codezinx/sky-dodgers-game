@@ -1,5 +1,6 @@
 import pygame
 import random as rand
+import os
 
 # Assets cache
 
@@ -97,6 +98,9 @@ class Player(pygame.sprite.Sprite):
     
     def freeze(self):
         self.__freeze = True
+    
+    def unfreeze(self):
+        self.__freeze = False
 
 class LabelTools:
     def __init__(self):
@@ -153,6 +157,27 @@ class Label(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = self.__pos
 
+class Image(pygame.sprite.Sprite):
+    def __init__(self, img_loc, pos):
+        super().__init__()
+        # Store image location
+        self.__img_loc = img_loc
+        # Store position
+        self.__pos = pos 
+    
+    def change_image(self, new_loc):
+        if os.path.exists(new_loc):
+            self.__img_loc = new_loc
+    
+    def update(self):
+        # Update image
+        self.image = pygame.image.load(self.__img_loc)
+        # Update rect
+        self.rect = self.image.get_rect()
+        # Update position
+        self.rect.center = self.__pos
+    
+
 class ScoreKeeper(pygame.sprite.Sprite):
     def __init__(self, screen):
         super().__init__()
@@ -164,10 +189,11 @@ class ScoreKeeper(pygame.sprite.Sprite):
         # Keep track of score
         self.__score = 0
         self.__alive = True
+        self.__freeze = False
 
     def score(self):
         # Add score depending on color of brick broken
-        if self.__alive:
+        if self.__alive and not self.__freeze:
             self.__score += 1
     
     def get_score(self):
@@ -175,6 +201,12 @@ class ScoreKeeper(pygame.sprite.Sprite):
     
     def player_died(self):
         self.__alive = False
+    
+    def freeze(self):
+        self.__freeze = True
+    
+    def unfreeze(self):
+        self.__freeze = False
     
     def update(self):
         # Update the score label with the appropriate information 
@@ -321,6 +353,9 @@ class EnemyFrame(pygame.sprite.Sprite):
     def freeze(self):
         self.__freeze = True
     
+    def unfreeze(self):
+        self.__freeze = False
+    
     def update(self):
         if not self.__freeze:
             self.rect.centerx -= self.__speed
@@ -386,6 +421,10 @@ class Mine(pygame.sprite.Sprite):
     def freeze(self):
         # Dummy function, since freeze will be called recursively for all sprites
         return
+    
+    def unfreeze(self):
+        # Dummy function
+        return
 
 
 class EnemyPlane(Mine):
@@ -400,13 +439,14 @@ class EnemyPlane(Mine):
         self.mask = pygame.mask.from_surface(self.image)
         # New key attributes
         self.__speed = 5
+        self.__curr_speed = self.__speed
      
     def update(self):
         # Move plane with its EnemyFrame and if active, its speed
         self.rect.centerx -= self._Mine__enemy_frame.get_speed()
 
         if self._Mine__active:
-            self.rect.centerx -= self.__speed
+            self.rect.centerx -= self.__curr_speed
         
         # Despawn mine if made inactive
         if not self._Mine__active:
@@ -417,7 +457,11 @@ class EnemyPlane(Mine):
                 self.kill()
     
     def freeze(self):
-        self.__speed = 0
+        self.__curr_speed = 0
+    
+    def unfreeze(self):
+        self.__curr_speed = self.__speed
+
 
 class FastEnemyPlane(EnemyPlane):
     def __init__(self, enemy_frame: EnemyFrame):

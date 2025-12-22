@@ -86,6 +86,14 @@ def main():
 
     game_over_group = pygame.sprite.Group(game_over_txt, go_score_label, go_score_display, go_hi_score_label, go_hi_score_display)
 
+    #### Pause screen
+
+    pause_bg = pygame.Surface(screen.get_size(), pygame.SRCALPHA, 32)
+    pause_bg.fill((130, 200, 229, 50)) # sky blue
+
+    pause_icon = sprites.Image("pause.png", (screen.get_width() // 2, screen.get_height() // 2))
+    pause_group = pygame.sprite.Group(pause_icon)
+
     # A - Action (broken into ALTER steps)
 
     # A - Assign values to key variables
@@ -97,6 +105,9 @@ def main():
     score_clock = 0
     ## Level tracker
     level = 1
+    ## Paused state
+    paused = False
+    saved_player_speed = player_speed
     ## Game over and clock
     game_over = False
     game_over_delay = 2 # sec
@@ -127,6 +138,14 @@ def main():
             elif event.type == pygame.JOYAXISMOTION:
                 if event.axis == 1:
                     player.move(event.value)
+            ### Detect pause input
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_p:
+                    paused = not paused
+            elif event.type == pygame.JOYBUTTONDOWN:
+                if event.button == 7:
+                    paused = not paused
+        
          
         ### Keyboard input (only functional if no joysticks are plugged in)
 
@@ -185,14 +204,15 @@ def main():
                 if heart.is_active():
                     health.heal()
         
-        ### Update level and speed after every 10 points, assuming game isn't over
+        ### Update level and speed after every 10 points, assuming game isn't over and isn't paused
 
-        if score.get_score() == 10 and not game_over:
+        if score.get_score() == 10 and not game_over and not paused:
             level = 2
-        elif score.get_score() == 20 and not game_over:
+        elif score.get_score() == 20 and not game_over and not paused:
             level = 3
-        elif score.get_score() == 30 and not game_over:
+        elif score.get_score() == 30 and not game_over and not paused:
             player_speed = 15
+            saved_player_speed = 15
             enemy_frame.set_speed(player_speed)
             enemy_frame_next.set_speed(player_speed)
 
@@ -232,6 +252,30 @@ def main():
             enemy_frame_next.init_sprites(level)
             enemy_sprites.add(enemy_frame_next.get_enemy_sprites())
             hearts.add(enemy_frame_next.get_hearts())
+        
+        ### On pause, freeze the game
+
+        if paused:
+            player_speed = 0
+            enemy_frame.set_speed(player_speed)
+            enemy_frame_next.set_speed(player_speed)
+            score.freeze()
+
+            ### Recursively freeze all enemy sprites
+            for sprite in enemy_sprites:
+                sprite.freeze()
+        
+        ### Unfreeze game on resume
+
+        else:
+            player_speed = saved_player_speed
+            enemy_frame.set_speed(player_speed)
+            enemy_frame_next.set_speed(player_speed)
+            score.unfreeze()
+
+            # Recursively unfreeze all enemy sprites
+            for sprite in enemy_sprites:
+                sprite.unfreeze()
          
         ### Is the game over?
 
@@ -246,6 +290,7 @@ def main():
             enemy_frame.set_speed(player_speed)
             enemy_frame_next.set_speed(player_speed)
             score.player_died()
+            paused = False
 
             ### Recursively freeze all enemy sprites (no need for hearts)
             for sprite in enemy_sprites:
@@ -292,6 +337,14 @@ def main():
         hearts.draw(screen)
         enemy_sprites.draw(screen)
         all_sprites.draw(screen)
+
+        ### Show pause screen if game is paused
+
+        if paused:
+            screen.blit(pause_bg, (0, 0))
+            pause_group.clear(screen, pause_bg)
+            pause_group.update()
+            pause_group.draw(screen)
 
         ### Show game over screen after game is over and certain time has passed
 

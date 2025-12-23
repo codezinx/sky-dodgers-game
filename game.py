@@ -323,13 +323,16 @@ def main():
             enemy_sprites.add(enemy_frame_next.get_enemy_sprites())
             hearts.add(enemy_frame_next.get_hearts())
         
-        ## On pause, freeze the game
+        ## On pause, freeze the game (if game is not over)
 
-        if paused:
+        if paused and not game_over:
             ### Stop game movement
             player_speed = 0
             enemy_frame.set_speed(player_speed)
             enemy_frame_next.set_speed(player_speed)
+
+            ### Freeze the player
+            player.freeze()
 
             ### Stop score incrementation
             score.freeze()
@@ -338,13 +341,16 @@ def main():
             for sprite in enemy_sprites:
                 sprite.freeze()
         
-        ## Unfreeze game when unpaused
+        ## Unfreeze game when unpaused (if game is not over)
 
-        else:
+        elif not game_over:
             ### Resume game movement
             player_speed = saved_player_speed
             enemy_frame.set_speed(player_speed)
             enemy_frame_next.set_speed(player_speed)
+
+            ### Unfreeze the player
+            player.unfreeze()
 
             ### Resume score incrementation
             score.unfreeze()

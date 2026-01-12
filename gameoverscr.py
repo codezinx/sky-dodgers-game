@@ -1,3 +1,9 @@
+"""
+Note: This file was only used as an aid to create the game over screen in game.py.
+
+This file is not being used by the game in any shape or form.
+"""
+
 # I - Import and Initialize
 import pygame, sys, sprites
 pygame.init()

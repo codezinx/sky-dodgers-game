@@ -183,7 +183,8 @@ def main():
             elif event.type == pygame.JOYAXISMOTION:
                 ### Move player object up or down, depending on the left thumbstick input
                 if event.axis == 1:
-                    player.move(event.value)
+                    player.move(round(event.value, 2))
+                    # round() fixes joystick drift
             ## Toggle paused state if right key / button is pressed
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_p:
